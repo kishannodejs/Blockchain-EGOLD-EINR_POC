@@ -5,10 +5,10 @@ import Tx from './Tx';
 import Button from 'react-bootstrap/Button';
 import useMeta from '../MetamaskLogin/useMeta';
 import StripePayment from './StripePayment';
-import RazorPay from './RazorPay';
+// require('dotenv').config()
 
-export default function EINR({ backdrop, setBackdrop, tx, setTx, receipt, setReceipt }) {
-    const { state: { EINRContract, EINRAddress, accounts, web3 } } = useMeta();
+export default function EUSD({ backdrop, setBackdrop, tx, setTx, receipt, setReceipt }) {
+    const { state: { EUSDContract, EUSDAddress, accounts, web3 } } = useMeta();
 
 
     const [myBalance, setMyBalance] = useState("");
@@ -28,7 +28,7 @@ export default function EINR({ backdrop, setBackdrop, tx, setTx, receipt, setRec
             setMyBalance(null);
         }
     }, [accounts])
-
+    
     useEffect(() => {
         if (success) {
             setBackdrop(true);
@@ -37,15 +37,22 @@ export default function EINR({ backdrop, setBackdrop, tx, setTx, receipt, setRec
             setTimeout(async () => {
                 getDataHandler();
                 setSuccess(false);
-            }, 4000)
+            }, 6000)
         }
     }, [success])
-
     const getDataHandler = async () => {
-        await EINRContract.methods.balanceOf(accounts[0]).call({ from: accounts[0] })
+        await EUSDContract.methods.balanceOf(accounts[0]).call({ from: accounts[0] })
             .then(e => {
                 //console.log(e);
                 setMyBalance(Web3.utils.fromWei(e, "ether"));
+                // setMyBalance(e);
+            })
+            .catch(err => console.log(err));
+
+        await EUSDContract.methods.owner().call({ from: accounts[0] })
+            .then(e => {
+                // console.log(e, "owner");
+                // setMyBalance(Web3.utils.fromWei(e, "ether"));
                 // setMyBalance(e);
             })
             .catch(err => console.log(err));
@@ -56,10 +63,9 @@ export default function EINR({ backdrop, setBackdrop, tx, setTx, receipt, setRec
         if (regex.test(e.target.value)) {
             setMint(e.target.value);
         }
-
     }
 
-    const mintEINR = async () => {
+    const mintEUSD = async () => {
         if (!accounts) {
             alert("Please Connect Wallet.");
             return;
@@ -80,7 +86,7 @@ export default function EINR({ backdrop, setBackdrop, tx, setTx, receipt, setRec
                     <tr>
                         <th>1</th>
                         <th>My Balance</th>
-                        <td>{myBalance ? `${myBalance} EINR` : '--'}</td>
+                        <td>{myBalance ? `${myBalance} EUSD` : '--'}</td>
                     </tr>
                 </tbody>
             </Table>
@@ -89,15 +95,14 @@ export default function EINR({ backdrop, setBackdrop, tx, setTx, receipt, setRec
                 display: "flex",
                 gap: "7px"
             }}>
-                <label><h5>EINR</h5></label>
-                <input onChange={setMintHandler} value={mint} type='number' min={1} step={1} placeholder='Enter EINR Amount' />
-                <Button onClick={mintEINR} variant="primary" size="sz" >
+                <label><h5>EUSD</h5></label>
+                <input onChange={setMintHandler} value={mint} type='number' min={1} placeholder='Enter EUSD Amount' />
+                <Button onClick={mintEUSD} variant="primary" size="sz" >
                     Mint
                 </Button>
-
             </div>
 
-            {/* {_Tx && <StripePayment
+            {_Tx && <StripePayment
                 _Tx={_Tx}
                 set_Tx={set_Tx}
                 setReceipt={setReceipt}
@@ -106,20 +111,9 @@ export default function EINR({ backdrop, setBackdrop, tx, setTx, receipt, setRec
                 setRID={setRID}
                 totalPrice={mint}
                 account={accounts[0]}
-                from='INR'
-                to='EINR'
-            />} */}
-            {_Tx && <RazorPay
-                _Tx={_Tx}
-                set_Tx={set_Tx}
-                setReceipt={setReceipt}
-                success={success}
-                setSuccess={setSuccess}
-                setRID={setRID}
-                totalPrice={mint}
-                account={accounts[0]}
-                from='INR'
-                to='EINR' />}
+                from='USD'
+                to='EUSD'
+            />}
         </div>
     )
 }

@@ -1,13 +1,8 @@
 const initialState = {
-    EINRArtifact: null,
-    EGOLDArtifact: null,
-    web3: null,
-    networkID: null,
-    EINRContract: null,
-    EGOLDContract: null,
-    EINRAddress: null,
-    EGOLDAddress: null,
-    accounts: null
+    EINRArtifact: null, EUSDArtifact: null, EGOLDArtifact: null, InventoryArtifact: null,
+    EINRContract: null, EUSDContract: null, EGOLDContract: null, InventoryContract: null,
+    EINRAddress: null, EUSDAddress: null, EGOLDAddress: null, InventoryAddress: null,
+    web3: null, networkID: null, accounts: null
 };
 
 const reducer = (state, action) => {

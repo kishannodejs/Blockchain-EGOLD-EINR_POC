@@ -3,46 +3,117 @@
 pragma solidity ^0.8.17;
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
 import "./EINR.sol";
+import "./EUSD.sol";
 
-contract EGOLDContract is ERC20 {
+contract EGOLDContract is Ownable, ERC20 {
     event Minted(address indexed _to, uint256 _amount);
-    event EINRAddressSet(address indexed _setBy, address indexed _EGOLDAdd);
-    event EGOLD_EINR_PriceSet(address indexed _setBy, uint256 _EGOLDPriceEINR);
+    event Burned(address indexed _to, uint256 _amount);
+    event InventoryAddressSet(
+        address indexed _setBy,
+        address indexed _InventoryAdd
+    );
+    event EINRAddressSet(address indexed _setBy, address indexed _EINRAdd);
+    event EUSDAddressSet(address indexed _setBy, address indexed _EUSDAdd);
     event EGOLD_INR_PriceSet(address indexed _setBy, uint256 _EGOLDPriceINR);
-    event EGOLD_EINR_Transfer(address  _from, address indexed _to, uint256 _EGoldAmount, uint256 _EINRAmount);
-    event EGOLD_INR_Transfer(address  _from, address indexed _to, string indexed _receipt, uint256 _EGoldmount, uint256 _INRAmount);
+    event EGOLD_USD_PriceSet(address indexed _setBy, uint256 _EGOLDPriceUSD);
+    event EGOLD_EINR_Transfer(
+        address _from,
+        address indexed _to,
+        uint256 _EGoldAmount,
+        uint256 _EINRAmount
+    );
+    event EGOLD_INR_Transfer(
+        address _from,
+        address indexed _to,
+        bytes32 indexed _receipt,
+        uint256 _EGoldmount,
+        uint256 _INRAmount
+    );
+    event EGOLD_EUSD_Transfer(
+        address _from,
+        address indexed _to,
+        uint256 _EGoldAmount,
+        uint256 _EUSDAmount
+    );
+    event EGOLD_USD_Transfer(
+        address _from,
+        address indexed _to,
+        bytes32 indexed _receipt,
+        uint256 _EGoldmount,
+        uint256 _USDAmount
+    );
 
     EINRContract public _EINR;
-    uint256 public EGoldPriceEINR;
+    EUSDContract public _EUSD;
     uint256 public EGoldPriceINR;
+    uint256 public EGoldPriceUSD;
     uint256 public availableSupply;
+    address public inventoryHandler;
 
-    constructor() ERC20("EGOLD", "EGOLD") {
-        uint256 _amount = 1000000 * 10**18;
-        _mint(address(this), _amount);
-        emit Minted(address(this), _amount);
-        availableSupply = totalSupply();
+    modifier onlyInventoryHandler() {
+        require(
+            msg.sender == inventoryHandler,
+            "Only Inventory Handler Contract allowed."
+        );
+        _;
     }
 
-    function setEINR(address _Einr) public {
+    constructor() ERC20("EGOLD", "EGOLD") {}
+
+    function setInventoryHandler(address _address) public onlyOwner {
+        require(
+            inventoryHandler == address(0),
+            "inventory Handler already set."
+        );
+        inventoryHandler = _address;
+        emit InventoryAddressSet(msg.sender, inventoryHandler);
+    }
+
+    function mint(uint256 _amount) public onlyInventoryHandler {
+        _mint(address(this), _amount);
+        availableSupply = balanceOf(address(this));
+        emit Minted(address(this), _amount);
+    }
+
+    function burn(uint256 _amount) public onlyInventoryHandler {
+        require(
+            balanceOf(address(this)) >= _amount,
+            "Insufficient EGOLD in Contract."
+        );
+        _burn(address(this), _amount);
+        availableSupply = balanceOf(address(this));
+        emit Burned(address(this), _amount);
+    }
+
+    function setEINR(address _Einr) public onlyOwner {
         _EINR = EINRContract(_Einr);
         emit EINRAddressSet(msg.sender, _Einr);
     }
 
-    function setGoldPriceEINR(uint256 _price) public {
-        EGoldPriceEINR = _price;
-        emit EGOLD_EINR_PriceSet(msg.sender, EGoldPriceEINR);
+    function setEUSD(address _Eusd) public onlyOwner {
+        _EUSD = EUSDContract(_Eusd);
+        emit EUSDAddressSet(msg.sender, _Eusd);
     }
 
-    function setGoldPriceINR(uint256 _price) public {
+    function setEGoldPriceINR(uint256 _price) public onlyOwner{
         EGoldPriceINR = _price;
         emit EGOLD_INR_PriceSet(msg.sender, EGoldPriceINR);
     }
 
+    function setEGoldPriceUSD(uint256 _price) public onlyOwner{
+        EGoldPriceUSD = _price;
+        emit EGOLD_USD_PriceSet(msg.sender, EGoldPriceUSD);
+    }
+
     function buyEGoldEINR(uint256 _EGoldAmount) public {
-        require(EGoldPriceEINR > 0, "EGOLD Price not set");
-        uint256 totalEINR = EGoldPriceEINR * (_EGoldAmount / 10**18);
+        require(
+            balanceOf(address(this)) >= _EGoldAmount,
+            "Insufficient EGOLD in Contract."
+        );
+        require(EGoldPriceINR > 0, "EGOLD Price not set");
+        uint256 totalEINR = EGoldPriceINR * (_EGoldAmount / 10**18);
         require(
             _EINR.balanceOf(msg.sender) >= totalEINR,
             "Insuffcient Balance"
@@ -50,17 +121,80 @@ contract EGOLDContract is ERC20 {
         _EINR.transferBal(msg.sender, totalEINR);
         _transfer(address(this), msg.sender, _EGoldAmount);
         availableSupply -= _EGoldAmount;
-        emit EGOLD_EINR_Transfer(address(this), msg.sender, _EGoldAmount, totalEINR);
+        emit EGOLD_EINR_Transfer(
+            address(this),
+            msg.sender,
+            _EGoldAmount,
+            totalEINR
+        );
     }
 
-    function buyEGoldINR(uint256 _EGoldAmount, string memory _receipt) public {
+    function buyEGoldINR(uint256 _EGoldAmount, address _to, bytes32 _receipt) public onlyOwner{
+        require(
+            balanceOf(address(this)) >= _EGoldAmount,
+            "Insufficient EGOLD in Contract."
+        );
+        require(EGoldPriceINR > 0, "EGOLD Price not set");
         uint256 totalINR = (EGoldPriceINR / 10**18) * (_EGoldAmount / 10**18);
+        _transfer(address(this), _to, _EGoldAmount);
+        availableSupply -= _EGoldAmount;
+        emit EGOLD_INR_Transfer(
+            address(this),
+            _to,
+            _receipt,
+            _EGoldAmount,
+            totalINR
+        );
+    }
+
+
+    function buyEGoldEUSD(uint256 _EGoldAmount) public {
+        require(
+            balanceOf(address(this)) >= _EGoldAmount,
+            "Insufficient EGOLD in Contract."
+        );
+        require(EGoldPriceUSD > 0, "EGOLD Price not set");
+        uint256 totalEUSD = EGoldPriceUSD * (_EGoldAmount / 10**18);
+        require(
+            _EUSD.balanceOf(msg.sender) >= totalEUSD,
+            "Insuffcient Balance"
+        );
+        _EUSD.transferBal(msg.sender, totalEUSD);
         _transfer(address(this), msg.sender, _EGoldAmount);
         availableSupply -= _EGoldAmount;
-        emit EGOLD_INR_Transfer(address(this), msg.sender, _receipt ,_EGoldAmount, totalINR);
+        emit EGOLD_EUSD_Transfer(
+            address(this),
+            msg.sender,
+            _EGoldAmount,
+            totalEUSD
+        );
     }
 
-    function BalEINR() public view returns (uint256) {
-        return (_EINR.balanceOf(address(this)));
+    function buyEGoldUSD(uint256 _EGoldAmount, address _to, bytes32 _receipt) public onlyOwner{
+        require(
+            balanceOf(address(this)) >= _EGoldAmount,
+            "Insufficient EGOLD in Contract."
+        );
+        require(EGoldPriceUSD > 0, "EGOLD Price not set");
+        uint256 totalUSD = (EGoldPriceUSD / 10**18) * (_EGoldAmount / 10**18);
+        _transfer(address(this), _to, _EGoldAmount);
+        availableSupply -= _EGoldAmount;
+        emit EGOLD_USD_Transfer(
+            address(this),
+            _to,
+            _receipt,
+            _EGoldAmount,
+            totalUSD
+        );
+    }
+
+    function BalEINR()
+        public
+        view
+        returns (uint256 _BalEINR, uint256 _BalEUSD)
+    {
+        _BalEINR = _EINR.balanceOf(address(this));
+        _BalEINR = _EUSD.balanceOf(address(this));
+        return (_BalEINR, _BalEUSD);
     }
 }
